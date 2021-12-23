@@ -53,41 +53,42 @@ int main(int argc, char** argv){
     show_cells(ARR_BASE_SIZE, arrow, cells, ARR_BASE_SIZE);
     printf_s("\nInput brainfck instruction:\t");
     scanf("%c", &cmd);
+    fflush(stdin);
     switch (cmd)
     {
-    case '.':     // output to terminal
-      break;
-    case ',':     // input from terminal
-      break;
-    case '>':     // next cell
-      if(arrow+1 >= ARR_BASE_SIZE)
-        arrow = 0;
-      else
-        arrow++;
-      break;
-    case '<':     // previous cell
-      if(arrow-1 < 0)
-        arrow = ARR_BASE_SIZE-1;
-      else
-        arrow--;
-      break;
-    case '+':     // increment cell's value
-      (*cell_ptr)++;
-      break;
-    case '-':     // decrement cell's value
-      (*cell_ptr)--;
-      break;
-    case '[':     // open loop
-      break;
-    case ']':     // close loop
-      break;
-    case 'q':
-      break;
-    default:
-      fprintf_s(stderr, "Unknown cmd: available '<' '>' ',' '.' '+' '-' '[' ']'\n");
-      fflush(stdin);
-      system("pause");
-      break;
+      case '.':     // output to terminal
+        break;
+      case ',':     // input from terminal
+        break;
+      case '>':     // next cell
+        if(arrow+1 >= ARR_BASE_SIZE)
+          arrow = 0;
+        else
+          arrow++;
+        break;
+      case '<':     // previous cell
+        if(arrow-1 < 0)
+          arrow = ARR_BASE_SIZE-1;
+        else
+          arrow--;
+        break;
+      case '+':     // increment cell's value
+        (*cell_ptr)++;
+        break;
+      case '-':     // decrement cell's value
+        (*cell_ptr)--;
+        break;
+      case '[':     // open loop
+        break;
+      case ']':     // close loop
+        break;
+      case 'q':
+        break;
+      default:
+        fprintf_s(stderr, "Unknown cmd: available '<' '>' ',' '.' '+' '-' '[' ']'\n");
+        fflush(stdin);
+        system("pause");
+        break;
     }
     system("cls");
   }while(cmd != 'q');
