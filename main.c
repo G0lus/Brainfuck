@@ -37,6 +37,9 @@ int main(int argc, char* argv[]){
       else
         fprintf(stdout, "File %s opened\n", filename);
     }
+    else if(!strcmp(type, "l")){
+      strncpy(chBufferProgram, argv[2], BUF_SIZE);
+    }
   }
   else{
     fprintf(stderr, "2nd argument not provided");
@@ -46,24 +49,39 @@ int main(int argc, char* argv[]){
     free(u8CellsPtr);
   }
 
-  // calculate how much chunks there needs to be (each 4kB of memory)
   uint64_t u64FileLength = 0;
   uint64_t u64ChunksNum = 0;
-  fseek(fileProgram, 0, SEEK_END);
-  u64FileLength = ftell(fileProgram);
-  fseek(fileProgram, 0, SEEK_SET);
-  
-
   uint64_t u64BytesRead = 0;
-  u64ChunksNum = (uint64_t) ceil((double) u64FileLength / (double)BUF_SIZE);
-  u64BytesRead = fread(chBufferProgram, sizeof(char), u64ChunksNum * BUF_SIZE - 1, fileProgram);
+  
+  if(fileProgram != NULL){
+    
+    fseek(fileProgram, 0, SEEK_END);
+    u64FileLength = ftell(fileProgram);
+    fseek(fileProgram, 0, SEEK_SET);
+    
 
-  if(ferror(fileProgram)){
-    perror("Error ocurred while reading a file: ");
+    // calculate how much chunks there needs to be (each 4kB of memory)
+    u64ChunksNum = (uint64_t) ceil((double) u64FileLength / (double)BUF_SIZE);
+    if(u64ChunksNum > 1){
+        chBufferProgram = realloc(chBufferProgram, u64ChunksNum*BUF_SIZE*sizeof(char));
+      if(chBufferProgram == NULL){
+        fprintf(stderr, "Problem reallocing array");
+      }
+    }
+    
+    u64BytesRead = fread(chBufferProgram, sizeof(char), u64ChunksNum * BUF_SIZE - 1, fileProgram);
+
+    if(ferror(fileProgram)){
+      perror("Error ocurred while reading a file: ");
+    }
+    
+    if(u64BytesRead < BUF_SIZE)
+      *(chBufferProgram + u64BytesRead + 1) = '\0';
+  }
+  else{
+    u64ChunksNum = 1;
   }
 
-  if(u64BytesRead < BUF_SIZE)
-    *(chBufferProgram + u64BytesRead + 1) = '\0';
   
   uint64_t i=0, j=0;
   uint8_t n = 0;
