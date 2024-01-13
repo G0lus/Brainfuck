@@ -1,144 +1,125 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
-#include <math.h>
+
+#include "brainfuck.h"
+
+#define ARGC_MINIMUM 2U
+#define VECTOR_LOOP_START_NUM 16U
+
+/* Argument can be either name of the fie with code or code itself. */
+enum arg_type{
+  ARG_TYPE_FILE,
+  ARG_TYPE_CODE,
+  ARG_TYPE_UNKNOWN,
+  ARG_TYPE_NONE,
+};
 
 
-#define BUF_SIZE 4096   // 4kB
-#define CELLS_NUM 256   // 256B
+static size_t file_get_length(FILE* file){
+    fseek(file, 0, SEEK_END);
+    size_t length = ftell(file);
+    fseek(file, 0, SEEK_SET);
 
+    return length;
+}
+
+static enum arg_type get_arg_type(int argc, char* argv){
+  if(argc <= ARGC_MINIMUM){
+    return ARG_TYPE_NONE;
+  }
+  char* type = strtok(argv, "-");
+  if(!strcmp(type, "f")){
+    return ARG_TYPE_FILE;
+  }
+  else if(!strcmp(type, "l")){
+    return ARG_TYPE_CODE;
+  }
+  else{
+    return ARG_TYPE_UNKNOWN;
+  }
+}
 
 int main(int argc, char* argv[]){
-
-  char* chBufferProgram = calloc(BUF_SIZE, sizeof(char));
-  if(!chBufferProgram){
-    fprintf(stderr, "Not enough memory to allocate %u of memory", BUF_SIZE);
-  }
-
-  uint32_t u32StartBuffPtr = (uint32_t) chBufferProgram;
-
-  uint8_t* u8CellsPtr = calloc(CELLS_NUM, sizeof(uint8_t));
-  if(!u8CellsPtr){
-    fprintf(stderr, "Not enough memory to allocate %u of memory", CELLS_NUM * sizeof(uint8_t));
-  }
-  uint32_t u32StartCellsPtr = (uint32_t) u8CellsPtr;
-  FILE* fileProgram = NULL;
+  int exit_status = EXIT_SUCCESS;
+  char* program_buffer = NULL;
+  size_t program_buffer_len = 0;
 
   // If argument is provided, interpret it based on type:
   // "-f" -> file (2nd argument is file's name)
-  if(argc > 1){
-    char* type = strtok(argv[1],"-");
-    if(!strcmp(type, "f")){
-      const char* filename = argv[2];
-      fileProgram = fopen(filename, "r");
-      if(fileProgram == NULL)
-        fprintf(stderr, "Unable to open file %s\n", filename);
-      else
-        fprintf(stdout, "File %s opened\n", filename);
+  enum arg_type arg = get_arg_type(argc, argv[1]);
+  #ifdef DEBUG_PRINT
+  printf("arg_type -> %d\n", arg);
+  #endif
+  /**
+   * First we need to check whether the code is provided via the file or 
+   * command line. 
+   * If provided via file, hence ARG_TYPE_FILE:
+   *  * Open and check the length of file. No need to parse it. 
+   *  * Allocate the length of the file.
+   *  * Read all code to memory.
+   * If provided via command line, hence ARG_TYPE_CODE:
+   *  * Check the length of code
+   *  * Allocate the length.
+   *  * Read the code to memory.
+   * If there is wrong arhument or none exit the program.
+   * */
+
+  if(arg == ARG_TYPE_NONE){
+    fprintf(stderr, "2nd argument not provided\n");
+    return EXIT_FAILURE;
+  }
+  else if(arg == ARG_TYPE_FILE){
+    char* filename = argv[2];
+    FILE* file_program = fopen(filename, "r");
+    if(file_program == NULL){
+      fprintf(stderr, "Cannot open file %s\n", filename);
+      exit_status = EXIT_FAILURE;
+      goto EXIT;
     }
-    else if(!strcmp(type, "l")){
-      strncpy(chBufferProgram, argv[2], BUF_SIZE);
+    size_t file_len = file_get_length(file_program);
+    program_buffer = calloc(file_len, sizeof(char));
+    if(!program_buffer){
+      fprintf(stderr, "Not enough memory to allocate %lu of memory\n", file_len);
+      exit_status = EXIT_FAILURE;
+      goto EXIT;
     }
+    program_buffer_len = file_len;
+    #ifdef DEBUG_PRINT
+    printf("Allocated %ld bytes\n", file_len);
+    #endif
+    if(fread(program_buffer, sizeof(char), file_len, file_program) != file_len){
+      fprintf(stderr, "Error reading %lu bytes from %s\n", file_len, filename);
+      exit_status = EXIT_FAILURE;
+      goto EXIT;
+    }
+    fclose(file_program);
+  }
+  else if(arg == ARG_TYPE_CODE){
+    char* program = argv[2];
+    size_t program_len = strlen(program);
+    program_buffer = calloc(program_len, sizeof(char));
+    if(!program_buffer){
+      fprintf(stderr, "Not enough memory to allocate %lu of memory", program_len);
+      exit_status = EXIT_FAILURE;
+      goto EXIT;
+    }
+    strncpy(program_buffer, program, program_len);
+    program_buffer_len = program_len;
   }
   else{
-    fprintf(stderr, "2nd argument not provided");
-    free(fileProgram);
-    free(chBufferProgram);
-    free(fileProgram);
-    free(u8CellsPtr);
+    fprintf(stderr, "2nd argument not correct.\n");
+    exit_status = EXIT_FAILURE;
+    goto EXIT;
   }
-
-  uint64_t u64FileLength = 0;
-  uint64_t u64ChunksNum = 0;
-  uint64_t u64BytesRead = 0;
+  #ifdef DEBUG_PRINT
+  printf("Read %ld bytes: %s\n", program_buffer_len, program_buffer);
+  #endif
   
-  if(fileProgram != NULL){
-    
-    fseek(fileProgram, 0, SEEK_END);
-    u64FileLength = ftell(fileProgram);
-    fseek(fileProgram, 0, SEEK_SET);
-    
-
-    // calculate how much chunks there needs to be (each 4kB of memory)
-    u64ChunksNum = (uint64_t) ceil((double) u64FileLength / (double)BUF_SIZE);
-    if(u64ChunksNum > 1){
-        chBufferProgram = realloc(chBufferProgram, u64ChunksNum*BUF_SIZE*sizeof(char));
-      if(chBufferProgram == NULL){
-        fprintf(stderr, "Problem reallocing array");
-      }
-    }
-    
-    u64BytesRead = fread(chBufferProgram, sizeof(char), u64ChunksNum * BUF_SIZE - 1, fileProgram);
-
-    if(ferror(fileProgram)){
-      perror("Error ocurred while reading a file: ");
-    }
-    
-    if(u64BytesRead < BUF_SIZE)
-      *(chBufferProgram + u64BytesRead + 1) = '\0';
-  }
-  else{
-    u64ChunksNum = 1;
-  }
-
+  bf_process_code(program_buffer_len, program_buffer);
   
-  uint64_t i=0, j=0;
-  uint8_t n = 0;
-  uint16_t u16LoopCnt=0;
-  while(j != u64ChunksNum){
-    for(;*chBufferProgram != '\0' ; chBufferProgram++){
-      switch(*chBufferProgram){
-        case '+':
-          (*u8CellsPtr)++;
-          break;
-        case '-':
-          (*u8CellsPtr)--;
-          break;
-        case '>':
-          n++;
-          u8CellsPtr = ((uint8_t*) u32StartCellsPtr) + n;
-          break;
-        case '<':
-          n--;
-          u8CellsPtr = ((uint8_t*) u32StartCellsPtr) + n;
-          break;
-        case '.':
-          fprintf(stdout, "%c",*u8CellsPtr);
-          break;
-        case ',':
-          fprintf(stdin, "Provide input\t");
-          scanf("%c", u8CellsPtr);
-          break;
-        case '[':
-          u16LoopCnt++;
-          if(*u8CellsPtr == 0){
-            while(*chBufferProgram != ']'){
-              chBufferProgram++;
-            }
-          }
-          break;
-        case ']':
-          if(*u8CellsPtr != 0){
-            do{
-              chBufferProgram--;
-            }while(*chBufferProgram != '[' && u16LoopCnt > 0);
-            chBufferProgram--;
-          }
-          u16LoopCnt--;
-          break;
-      }
-    }
-    j++;
-  }
 
-
-  
-  
-  
-  free(fileProgram);
-  free(chBufferProgram);
-  free(u8CellsPtr);
-  fclose(fileProgram);
-  exit(EXIT_SUCCESS);
+  EXIT:
+  free(program_buffer);
+  return exit_status;
 }
