@@ -75,7 +75,7 @@ int main(int argc, char* argv[]){
     if(file_program == NULL){
       fprintf(stderr, "Cannot open file %s\n", filename);
       exit_status = EXIT_FAILURE;
-      goto EXIT;
+      return EXIT_FAILURE;
     }
     size_t file_len = file_get_length(file_program);
     program_buffer = calloc(file_len, sizeof(char));
@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
       exit_status = EXIT_FAILURE;
       goto EXIT;
     }
-    strncpy(program_buffer, program, program_len);
+    strcpy(program_buffer, program);
     program_buffer_len = program_len;
   }
   else{

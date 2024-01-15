@@ -10,14 +10,17 @@ set(SOURCES
     src/brainfuck.c
 )
 include_directories(inc)
+ 
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    add_compile_definitions(-DDEBUG_PRINT)
+endif()
+
+
 
 add_executable(brainfuck 
     main.c 
     ${SOURCES}
 )
-
-# target_include_directories(brainfuck PUBLIC common_lib)
-# target_link_libraries(brainfuck vector)
 
 enable_testing()
 add_subdirectory(tests)
